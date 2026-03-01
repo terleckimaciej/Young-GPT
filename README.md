@@ -39,7 +39,7 @@ A llub Cicho, liczą się za mną...
 **Observations:**
 *   **Visual Structure:** This model processes text almost like an image. It perfectly mimics the *visual density* of lyrics—short, punchy lines, frequent line breaks, and consistent stanza groupings (often resembling a "4-bar loop").
 *   **Phonetic Hallucination:** It synthesizes non-existent but phonetically plausible words (*"klałki"*, *"towarli"*). It implicitly learned that the average Polish word is 2-3 syllables long, creating a jagged but physically pronounceable rhythm.
-*   **"Child-like" Rhymes:** The rhyming strategy is purely morphological (suffix matching). It sees that lines often end with similar characters even if it doesn't understand the words (e.g., matching *-no* with *-mno*). It’s like a child equating verbs with verbs.
+*   **"Child-like" Rhymes:** The rhyming strategy is purely morphological (suffix matching). It sees that lines often end with similar characters even if it doesn't understand the words (e.g., matching *za mną* with *wapno*). It’s like a child equating verbs with verbs.
 *   **The "Density" Advantage:** With ~1M characters and only ~100 tokens (letters), the model has **~10,000 examples per token**. This massive signal density allows it to master local dependencies (spelling, line endings) far better than the BPE models below.
 *   **Problem:** It has mastering the *texture* of the language but has zero semantic understanding. To fix this, we need to move from characters to words.
 
@@ -52,6 +52,7 @@ A llub Cicho, liczą się za mną...
 *   **Concept & Goal:** We shift from predicting letters to predicting "tokens" (sub-words or whole words). The goal is to allow the model to process information more efficiently and produce coherent sentences by taking "words for granted."
 
 **A. Standard OpenAI Tokenizer (50k vocab)**
+*   **Why this choice:** We began with the industry standard (`gpt2` tokenizer) to establish a baseline. As the default tokenization method for many modern LLMs, it was the natural first step to see if simply adopting "professional" tokenization could elevate the model from spelling letters to forming sentences.
 *   **Output Example:** ([`assets/tiktoken_model/output/output2.txt`](assets/tiktoken_model/output/output2.txt))
     ```text
     Pij robię swój w to i rap grzejmij
@@ -61,27 +62,30 @@ A llub Cicho, liczą się za mną...
 *   **Observations:** 
     *   **The "Sparsity" Crash:** By increasing the vocabulary to 50,000 tokens while keeping the dataset small (~1MB), the average **examples per token dropped drastically**. The model has too many "slots" to fill and not enough data to learn the relationships between them.
     *   **Word Salad:** It jumps between topics every token. Real words exist (*"robię"*, *"jestem"*), but grammatical connection is lost.
-    *   **Fragmentation:** Because the OpenAI tokenizer is universal (not Polish-optimized), it often splits Polish words into unintuitive sub-tokens, occasionally creating invalid neologisms (*"prawdzmat"*) when those sub-tokens are reassembled incorrectly.
+    *   **Fragmentation:** Because the OpenAI tokenizer is universal (not Polish-optimized), it often splits Polish words into unintuitive sub-tokens (thanks to polish grammar), occasionally creating invalid neologisms (*"prawdzmat"*) when those sub-tokens are reassembled incorrectly.
 
-**B. Custom Small-Vocab Tokenizer (2k vocab)**
+**B. Custom Small-Vocab Tokenizer (2-5k vocab)**
+*   **Why this choice:** To combat the "sparsity crash," we trained a custom tokenizer specifically on our dataset with a drastically reduced vocabulary (2-5k tokens). The hypothesis was that eliminating unused English tokens and shrinking the dictionary would ensure each token appears frequently enough for the model to learn it.
 *   **Output Example:** ([`assets/tiktoken_model/output/output4.txt`](assets/tiktoken_model/output/output4.txt))
     ```text
-    ka chę ć twoje ru chaj ą tam 1 6 00 ! Tak to lecę ogó lnie go zam i mieli s pe ały czas
+    ka chęć twoje ruchają tam 1600! Tak to lecę ogólnie go zamimieli spe ały czas
     ```
 *   **Observations:** 
-    *   **Syllable Salad:** To avoid the sparsity of the 50k vocab, we trained a custom tokenizer with only 2,000 tokens. However, this forced the tokenizer to break almost every word into tiny fragments (syllables) to fit the limit.
+    *   **The Paradox of Compression:** In BPE, a smaller vocabulary forces the tokenizer to be more aggressive. It can only "afford" to store the most frequent sub-units. Since full words (like *"samochód"*) are rarer than their building blocks (letters/syllables like *"sa"*, *"mo"*), the tokenizer discards full words to save space.
+    *   **Regression to Characters:** Paradoxically, by trying to simplify the vocabulary, we forced the model back towards character-level processing. The token stream became a sequence of syllables (`ka`, `chę`, `ć`), requiring the model to relearn how to glue them together—a task it failed at due to the lack of dense training data.
     *   **Un-learning Spelling:** The model was effectively forced back to "Stage 1" (learning to spell), but with worse resolution than characters. Detailed words like *"specjalnie"* became sequences like `s` `pe` `cjal` `nie`, which the model failed to reassemble consistently.
 
 **C. Polish-Specific Tokenizer**
+*   **Why this choice:** Both previous attempts failed at "word integrity." The standard tokenizer chopped Polish words because it didn't know them; the custom tokenizer chopped them because it had no room for them. We concluded that while sticking to "from scratch" approach and using the same dataset one more thing to try is using tokenizer specifically trained on polish corpora to see if it handles the task better than an universal one. 
 *   **Output Example:** ([`assets/tiktoken_model/output/output6.txt`](assets/tiktoken_model/output/output6.txt))
     ```text
     Mam pierwszy patrz, na płyty uwieja w tejjedno baj noga zobowiązani, przekaz
     Gdzie możesz mieć podwójewska Operacyjnego to kwestia rachunek marnkę
     ```
 *   **Observations:** 
-    *   **Structural Stiff:** This tokenizer successfully kept complex Polish words entire (*"zobowiązani"*, *"operacyjnego"*). Spelling errors vanished.
-    *   **Lack of Flow:** While the words are valid, the model still lacks the data volume to weave them into a flow. The syntax is rigid, resembling a list of dictionary words rather than a song.
-    *   **Conclusion:** We cannot solve the data-density problem by just changing the tokenizer. To get semantic meaning and style from a small dataset, we need a model that *already knows* Polish.
+    *   **Structural Stiff:** This tokenizer successfully kept complex Polish words entire (*"zobowiązani"*, *"operacyjnego"*), they seem to occur more frequently than when using OpenAI's universal tokenizer. 
+    *   **Lack of Flow:** While the words are mostly valid, the model still lacks the data volume to weave them into a flow. The syntax is rigid, resembling a list of dictionary words rather than a song.
+    *   **Conclusion:** We cannot solve the data-density problem by just changing the tokenizer. To get semantic meaning and style we need a massive dataset... or a model that *already knows* Polish.
 
 ---
 
