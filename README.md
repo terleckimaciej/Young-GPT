@@ -22,6 +22,8 @@ The data was self acquired via Genius API, one can seamlessly collect its artist
 
 This project represents an evolution of understanding—from learning the shapes of letters to mastering the style of a specific artist. The following breakdown illustrates the specific goals, trade-offs, and results of each architectural decision.
 
+> **Note:** The text samples below are short excerpts. You are encouraged to check the full generated output files, which are linked in each section under **Output Example**.
+
 ### Stage 1: From Scratch (The Visual Mimic)
 *   **Model:** [`gpt.py`](gpt.py)
 *   **Architecture:** Custom Transformer (Pytorch)
@@ -87,8 +89,14 @@ A llub Cicho, liczą się za mną...
     *   **Lack of Flow:** While the words are mostly valid, the model still lacks the data volume to weave them into a flow. The syntax is rigid, resembling a list of dictionary words rather than a song.
     *   **Conclusion:** We cannot solve the data-density problem by just changing the tokenizer. To get semantic meaning and style we need a massive dataset... or a model that *already knows* Polish.
 
+**Conclusion: BPE Failure:**
+Ultimately, shifting to BPE (regardless of the specific tokenizer) failed to produce a better "song writer" than the simple character-level model. We faced a wall that engineering couldn't climb: **Data Volume**.
+*   **Char-Level:** ~100 tokens, 1M characters dataset = High density learning (model sees each token thousands of times).
+*   **BPE-Level:** ~2k-50k tokens, 1M characters dataset = Extreme sparsity (model sees many tokens only once or twice).
+To make BPE work effectively, we would need a dataset 100x larger (hundreds of megabytes, not 1MB). Since we cannot generate more songs by the artist, the only way to scale up without changing the dataset is to change the brain: **Transfer Learning**. We need a model that *already* read the entire Polish internet, so we only have to teach it *style* and *rhyme*, not the entire language from scratch.
 ---
 
+TO DO: w ponizszej sekcji oprocz poprawek dodac opis 1st run.
 ### Stage 3: Transfer Learning (The Style Transfer)
 *   **Model:** [`gpt_hf.py`](gpt_hf.py)
 *   **Architecture:** Pre-trained GPT-2 (`flax-community/papuGaPT2`)
@@ -139,3 +147,4 @@ python gpt_tiktoken.py --input assets/input/input2.txt --max_iters 5000
 ```bash
 python gpt_hf.py --input assets/input/input2.txt --epochs 3
 ```
+TO DO: dodac contributions dla Karpathy'ego
