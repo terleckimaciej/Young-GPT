@@ -11,12 +11,12 @@ The primary objective is to investigate whether a model built entirely from the 
 Next, we experiment with leveraging different tokenizers by shifting from character-level to BPE-level encoding to understand the challenges that arise regarding data, computation, model size, and pre-training. This provides key insights into how LLMs "learn to speak" and what was required to evolve the self-attention mechanism (introduced in the 2017 [Attention Is All You Need](https://proceedings.neurips.cc/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf) paper) into the ChatGPT-like models we take for granted today.
 
 These baseline results are subsequently compared against two evolved approaches:
-1.  A model utilizing BPE (Byte Pair Encoding) tokenizer to process sub-word units instead of characters. Multiple applied approaches reveal it's challenges and properties.
-2.  A **pre-trained model** where existing weights are recalibrated (fine-tuned) on the same Tede dataset, leveraging Transfer Learning. The idea is to try to overcome dataset and computation limitations of from-scratch-BPE model.
+1.  A model utilizing BPE (Byte Pair Encoding) tokenizer to process sub-word units instead of characters. Multiple applied approaches reveal its challenges and properties.
+2.  A **pre-trained model** where existing weights are recalibrated (fine-tuned) on the same Tede dataset, leveraging Transfer Learning. The idea is to try to overcome the dataset and computation limitations of the from-scratch-BPE model.
 
 ## The Dataset
-The models are trained on a corpus of polish rapper **Tede** entire discography lyrics. It consists of ~1M characters.
-The data was self acquired via Genius API, one can seamlessly collect its artist of choice eqivalent dataset by changing the ARTIST_NAME parameter and running the [`data_collection.py`](data_collection.py) script. 
+The models are trained on a corpus comprising the entire discography of Polish rapper **Tede**. It consists of ~1M characters.
+The data was self-acquired via the Genius API. Users can seamlessly collect an equivalent dataset for their artist of choice by changing the `ARTIST_NAME` parameter and running the [`data_collection.py`](data_collection.py) script. 
 
 ## The Three Approaches: Comparative Results
 
@@ -78,14 +78,14 @@ A llub Cicho, liczą się za mną...
     *   **Un-learning Spelling:** The model was effectively forced back to "Stage 1" (learning to spell), but with worse resolution than characters. Detailed words like *"specjalnie"* became sequences like `s` `pe` `cjal` `nie`, which the model failed to reassemble consistently.
 
 **C. Polish-Specific Tokenizer**
-*   **Why this choice:** Both previous attempts failed at "word integrity." The standard tokenizer chopped Polish words because it didn't know them; the custom tokenizer chopped them because it had no room for them. We concluded that while sticking to "from scratch" approach and using the same dataset one more thing to try is using tokenizer specifically trained on polish corpora to see if it handles the task better than an universal one. 
+*   **Why this choice:** Both previous attempts failed at "word integrity." The standard tokenizer chopped Polish words because it didn't know them; the custom tokenizer chopped them because it had no room for them. We concluded that, while sticking to the "from scratch" approach and using the same dataset, one more avenue to explore was using a tokenizer specifically trained on Polish corpora to see if it handles the task better than a universal one.
 *   **Output Example:** ([`assets/tiktoken_model/output/output6.txt`](assets/tiktoken_model/output/output6.txt))
     ```text
     Mam pierwszy patrz, na płyty uwieja w tejjedno baj noga zobowiązani, przekaz
     Gdzie możesz mieć podwójewska Operacyjnego to kwestia rachunek marnkę
     ```
 *   **Observations:** 
-    *   **Structural Stiff:** This tokenizer successfully kept complex Polish words entire (*"zobowiązani"*, *"operacyjnego"*), they seem to occur more frequently than when using OpenAI's universal tokenizer. 
+    *   **Structural Rigidity:** This tokenizer successfully kept complex Polish words intact (*"zobowiązani"*, *"operacyjnego"*), and they seem to occur more frequently than when using OpenAI's universal tokenizer. 
     *   **Lack of Flow:** While the words are mostly valid, the model still lacks the data volume to weave them into a flow. The syntax is rigid, resembling a list of dictionary words rather than a song.
     *   **Conclusion:** We cannot solve the data-density problem by just changing the tokenizer. To get semantic meaning and style we need a massive dataset... or a model that *already knows* Polish.
 
@@ -133,7 +133,7 @@ Drinki mu dają po dupie pije dalej przez tydzień
 ```
 
 **Observations:**
-*   **Semantic Coherence:** Unlike previous models, these sentences have logical meaning. The model describes a scene (club, people, evening) rather than just vomiting words, but shifts between them chaotically like a dream.Nonetheless it does lose context instantly, this model links concepts across lines. Line 7 ends with *"Drinkiem"*, and Line 8 immediately picks up with *"Drinki"* (and relates to a person from previus line), showing its understanding how can maintain a context.
+*   **Semantic Coherence:** Unlike previous models, these sentences have logical meaning. The model describes a scene (club, people, evening) rather than just vomiting words, but shifts between them chaotically like a dream. Although it occasionally loses context, this model links concepts across lines. Line 7 ends with *"Drinkiem"*, and Line 8 immediately picks up with *"Drinki"* (relating back to the person from the previous line), demonstrating an emerging ability to maintain context.
 *   **The "Hip-Hop Cadence":** 
     It manipulates larger rhythmic units than the char-model:
     * **Slant rhyme** (assonance) of *Drinkiem* (drink-yem) vs *Tydzień* (ti-jen). This is a sophisticated imperfect rhyme which a character model looking for exact text matches would never attempt.
@@ -143,6 +143,47 @@ Drinki mu dają po dupie pije dalej przez tydzień
     *   Initially (output1), the model suffered from "Wiki-Bias", struggling to stop being formal.
     *   By aggressively **overfitting** (50 epochs) with high weight decay, we forced a complete persona switch. The model successfully adopted entities, effectively "forgetting" its encyclopedic nature to become a rapper.
 *   **Trade-off (Visuals):** While semantically superior, this model struggles slightly with the *visual discipline* of the char-model. It sometimes drifts into long, run-on sentences or prose-like structures ("stream of consciousness") because its base training (Wikipedia) wasn't formatted as poetry. It prioritizes *saying something* over *looking like a song*.
+
+## Conclusions
+The project highlights the critical relationship between **vocabulary size** and **dataset volume** in training Language Models.
+
+1.  **Form over Content (Char-level):** The character-level model (Stage 1) demonstrated that with a small dataset, it is easier to mimic the *visual and phonetic structure* of language (rhymes, line breaks) than its meaning. The high frequency of character occurrence allowed the model to master the "texture" of the text despite having zero semantic understanding.
+
+2.  **The Curse of Dimensionality (BPE):** Attempts to introduce semantic awareness via BPE tokenization (Stage 2) failed not due to architecture, but due to **data sparsity**. Increasing the vocabulary size from ~100 (chars) to ~50k (tokens) without increasing the dataset size diluted the signal, preventing the model from learning distinct token embeddings. This confirmed that **model complexity cannot outpace available data**.
+
+3.  **The Power of Transfer Learning:** The final approach (Stage 3) proved that for niche tasks with limited data, **fine-tuning is indispensable**. By leveraging a model that already understood Polish grammar (PapuGaPT2), we could repurpose the small dataset from "learning to speak" to "learning a style." This resulted in the only model capable of generating coherently structured, stylistically accurate lyrics that maintained semantic context.
+## Project Structure
+
+The repository is organized to separate source code, data, and trained model artifacts.
+
+```plaintext
+Mlody-GTP/
+├── data_collection.py       # Script to fetch lyrics from Genius API
+├── gpt.py                   # Stage 1: Character-level GPT implementation (from scratch)
+├── gpt_tiktoken.py          # Stage 2: BPE-level GPT implementation (from scratch)
+├── gpt_hf.py                # Stage 3: Fine-tuning script for pre-trained Hugging Face models
+├── train_tokenizer.py       # Utility to train custom BPE tokenizers on the dataset
+├── prompt.txt               # Sample prompts for testing generation
+├── requirements.txt         # Python dependencies
+│
+└── assets/                  # Main directory for all data and artifacts
+    ├── input/               # Raw training datasets (text files).
+    │   └── input2.txt       # The primary dataset used (Tede discography)
+    │
+    ├── char_model/          # Stage 1 artifacts
+    │   ├── model_best.pt    # Saved weights for the character-level model
+    │   └── output/          # Generated text samples and training parameters
+    │
+    ├── tiktoken_model/      # Stage 2 artifacts
+    │   ├── polish_gpt2/     # Custom trained Polish BPE tokenizer files
+    │   ├── model_best.pt    # Saved weights for BPE models
+    │   └── output/          # Results for different BPE tokenizer approaches 
+    │
+    └── hf_model/            # Stage 3 artifacts (Fine-tuned PapuGaPT2)
+        ├── model.safetensors # Fine-tuned model weights
+        ├── tokenizer.json   # Tokenizer configuration
+        └── output/          # Samples from different training epochs (4 vs 50) demonstrating the progression
+```
 
 ## Usage
 
